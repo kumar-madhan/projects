@@ -1,0 +1,96 @@
+pipeline {
+  agent {
+      label 'Build_Node'
+    }
+  stages {
+    stage('Checkout') {
+      steps {
+        sh 'echo passed'
+        checkout([
+            $class: 'GitSCM', 
+            branches: [[name: '*/main']], 
+            doGenerateSubmoduleConfigurations: false, 
+            extensions: [[$class: 'CleanCheckout']], 
+            submoduleCfg: [], 
+            userRemoteConfigs: [[credentialsId: 'Git-Cred', url: 'git@github.com:kumar-madhan/jenkins-cicd.git']]
+        ])
+      }
+    }
+    stage('Build and Test') {
+      steps {
+        sh 'ls -ltr'
+        // build the project and create a JAR file
+        sh 'cd spring-boot-app && mvn clean package'
+      }
+    }
+    stage('Static Code Analysis') {
+      environment {
+        SONAR_URL = "http://64.227.161.23:9000/"
+      }
+      steps {
+        withCredentials([string(credentialsId: 'SonarQube', variable: 'SONAR_AUTH_TOKEN')]) {
+          sh 'cd spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+        }
+      }
+    }
+    stage('Upload'){
+        steps{
+            script{
+                server = Artifactory.server 'Artifactory'
+                def uploadSpec = """{
+                    "files": [
+                    {
+                        "pattern": "**/target/*.jar",
+                        "target": "generic-local/releases/"
+                    }
+                    ]}"""
+                server.upload(uploadSpec)
+            }        
+        }
+    }
+    stage('Build and Push Docker Image') {
+        environment {
+            DOCKER_IMAGE = "ultimate-cicd:${BUILD_NUMBER}"
+            DOCKERFILE_LOCATION = "spring-boot-app/Dockerfile"
+            REGISTRY_CREDENTIALS = credentials('DockerHub')
+            }
+        steps {
+            // Use the withCredentials block to access credentials
+                withCredentials([usernamePassword(credentialsId: 'DockerHub', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    // Inside this block, you can access the credentials using the defined variables
+                    sh '''
+                        # Example usage of credentials
+                        echo "Username: $USERNAME"
+                        echo "Password: $PASSWORD"
+                        # Use the credentials for authentication, such as in a Docker login command
+                        docker login -u $USERNAME -p $PASSWORD
+                        
+                        cd spring-boot-app && docker build -t ${DOCKER_IMAGE} .
+                        docker tag ultimate-cicd:${BUILD_NUMBER} kumarmadhan/ultimate-cicd:${BUILD_NUMBER}
+                        docker push kumarmadhan/ultimate-cicd:${BUILD_NUMBER}
+                    '''
+                }
+            }
+        }
+    stage('Update Deployment File') {
+        environment {
+            GIT_REPO_NAME = "jenkins-cicd"
+            GIT_USER_NAME = "kumar-madhan"
+        }
+        steps {
+            withCredentials([string(credentialsId: 'Git-Token', variable: 'GITHUB_TOKEN')]) {
+                sh '''
+                    git config --global user.name "kumar-madhan"
+                    git config --global user.email "madhankumar150598@gmail.com"
+
+                    BUILD_NUMBER=${BUILD_NUMBER}
+                    sed -i "s/ultimate-cicd:[0-9]*/ultimate-cicd:${BUILD_NUMBER}/g" spring-boot-app-manifests/deployment.yml
+                    git add spring-boot-app-manifests/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                '''
+            }
+        }
+    }
+  }
+}
