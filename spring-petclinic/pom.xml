@@ -156,13 +156,6 @@
               <goal>enforce</goal>
             </goals>
             <configuration>
-                <format>ALL</format>
-                <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
-                <nvdApiServerId>nvd</nvdApiServerId>
-                <nvdApiKey>e0920531-840b-490c-b082-bc36bdaa6394</nvdApiKey>
-            </configuration>
-
-            <configuration>
               <rules>
                 <requireJavaVersion>
                   <message>This build requires at least Java ${java.version}, update your JVM, and run the build again</message>
