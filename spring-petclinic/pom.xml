@@ -147,23 +147,6 @@
   <build>
     <plugins>
       <plugin>
-              <groupId>org.owasp</groupId>
-              <artifactId>dependency-check-maven</artifactId>
-              <executions>
-                  <execution>
-                      <goals>
-                          <goal>check</goal>
-                      </goals>
-                    <configuration>
-                      <format>ALL</format>
-                      <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
-                      <nvdApiServerId>nvd</nvdApiServerId>
-                      <nvdApiKey>e0920531-840b-490c-b082-bc36bdaa6394</nvdApiKey>
-                      </configuration>
-                  </execution>
-              </executions>
-            </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
